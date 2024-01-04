@@ -1,16 +1,13 @@
-import requests
 import json
-from requests_toolbelt.adapters import host_header_ssl
-import urllib3
 import subprocess
 import urllib.parse
+from importlib.resources import path
 
-# PIA uses the CN attribute for certificates they issue themselves.
-# This will be deprecated by urllib3 at some point in the future, and generates a warning (that we ignore).
-urllib3.disable_warnings(urllib3.exceptions.SubjectAltNameWarning)
+import requests
+from requests_toolbelt.adapters import host_header_ssl
 
 
-class piawg:
+class PiaWG:
     def __init__(self):
         self.server_list = {}
         self.get_server_list()
@@ -39,16 +36,18 @@ class piawg:
         # https://toolbelt.readthedocs.io/en/latest/adapters.html#requests_toolbelt.adapters.host_header_ssl.HostHeaderSSLAdapter
         s = requests.Session()
         s.mount('https://', host_header_ssl.HostHeaderSSLAdapter())
-        s.verify = 'ca.rsa.4096.crt'
 
-        r = s.get("https://{}/authv3/generateToken".format(meta_ip), headers={"Host": meta_cn},
-                  auth=(username, password))
-        data = r.json()
-        if r.status_code == 200 and data['status'] == 'OK':
-            self.token = data['token']
-            return True
-        else:
-            return False
+        # We use a local certificate file to verify the PIA certificate, this certificate is included in the package
+        with path('pia_wg', 'ca.rsa.4096.crt') as ca_file:
+            s.verify = ca_file.resolve()
+
+            r = s.get(f"https://{meta_ip}/authv3/generateToken", headers={"Host": meta_cn}, auth=(username, password))
+            data = r.json()
+            if r.status_code == 200 and data['status'] == 'OK':
+                self.token = data['token']
+                return True
+            else:
+                return False
 
     def generate_keys(self):
         self.privatekey = subprocess.run(['wg', 'genkey'], stdout=subprocess.PIPE, encoding="utf-8").stdout.strip()
@@ -62,12 +61,13 @@ class piawg:
 
         s = requests.Session()
         s.mount('https://', host_header_ssl.HostHeaderSSLAdapter())
-        s.verify = 'ca.rsa.4096.crt'
 
-        r = s.get("https://{}:1337/addKey?pt={}&pubkey={}".format(ip, urllib.parse.quote(self.token),
-                                                                  urllib.parse.quote(self.publickey)), headers={"Host": cn})
-        if r.status_code == 200 and r.json()['status'] == 'OK':
-            self.connection = r.json()
-            return True, r.content
-        else:
-            return False, r.content
+        with path('pia_wg', 'ca.rsa.4096.crt') as ca_file:
+            s.verify = ca_file.resolve()
+
+            r = s.get(f"https://{ip}:1337/addKey?pt={urllib.parse.quote(self.token)}&pubkey={urllib.parse.quote(self.publickey)}", headers={"Host": cn})
+            if r.status_code == 200 and r.json()['status'] == 'OK':
+                self.connection = r.json()
+                return True, r.content
+            else:
+                return False, r.content

@@ -1,4 +1,5 @@
 # pia-wg
+
 A WireGuard configuration utility for Private Internet Access
 
 This is a Python utility that generates WireGuard configuration files for the Private Internet Access VPN service. This allows you to take advantage of the WireGuard protocol without relying on PIA's proprietary client.
@@ -7,47 +8,43 @@ This was created by reverse engineering the [manual-connections](https://github.
 
 pia-wg runs on both Windows and Linux.
 
-## Windows
-* Install the latest version of [Python 3](https://www.python.org/downloads/windows/)
-  * Select "Add Python to environment variables"
-* Install [WireGuard](https://www.wireguard.com/install/)
+This is just a cli version of the [original tool](https://github.com/hsand/pia-wg), also I packaged it into a proper python package.
 
-Open a command prompt and navigate to the directory where you placed the pia-wg utility. The following commands will create a virtual Python environment, install the dependencies, and run the tool.
+## Install
 
-```
-python -m venv venv
-venv\Scripts\activate
-pip install -r requirements.txt
-python generate-config.py
-```
+### Option 1: Build from source
 
-Follow the prompts. When finished, you can exit the virtual environment with the `deactivate` command.
+1. Clone the project and cd into it
+2. Make sure you have the `build` package installed: `pip install build`
+3. Execute `pythom -m build` to build to package
+4. Install the wheel in the dist folder with `pip install`
 
-The script should generate a `.conf` file that can be imported into the WireGuard utility.
+### Option 2: Download a wheel from the releases
 
-## Linux (Debian/Ubuntu)
-Install dependencies, clone pia-wg project, and create a virual Python environment:
-```
-sudo apt install git python3-venv wireguard openresolv
-git clone https://github.com/hsand/pia-wg.git
-cd pia-wg
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-```
+1. Download the release wheel
+2. Install it with `pip install`
 
-Run the tool, and follow the prompts
-```
-python3 generate-config.py
-```
+## Usage
 
-Copy the `.conf` file to `/etc/wireguard/`, and start the interface
-```
-sudo cp PIA-Iceland-1605054556.conf /etc/wireguard/wg0.conf
-sudo wg-quick up wg0
-```
+```plaintext
+usage: pia_wg [-h] [--list] [--region REGION] [--username USERNAME]
+              [--password PASSWORD] [--output OUTPUT]
 
-You can shut down the interface with `sudo wg-quick down wg0`
+PIA Wireguard
+
+options:
+  -h, --help            show this help message and exit
+  --list, -l            List available regions
+  --region REGION, -r REGION
+                        Region to connect to
+  --username USERNAME, -u USERNAME
+                        PIA username
+  --password PASSWORD, -p PASSWORD
+                        PIA password
+  --output OUTPUT, -o OUTPUT
+                        Where to save the config file
+```
 
 ## Check everything is working
+
 Visit https://dnsleaktest.com/ to see your new IP and check for DNS leaks.

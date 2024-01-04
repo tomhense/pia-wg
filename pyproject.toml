@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pia-wg"
+license = {text = "GPL-3.0"}
+version = "0.0.1"
+description = "A cli version of pia-wg"
+readme = "README.md"
+requires-python = ">=3.6"
+dependencies = ["certifi", "chardet", "idna", "requests", "requests-toolbelt", "urllib3"]
+authors = [
+    {name = "Tom Hense", email = "example@example.com"}
+]
+
+[project.scripts]
+pia_wg = "pia_wg.__main__:main"
