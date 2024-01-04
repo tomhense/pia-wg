@@ -5,7 +5,66 @@ from getpass import getpass
 from pia_wg.piawg import PiaWG
 
 
-def main():
+def region_list() -> list[str]:
+    pia = PiaWG()
+    return sorted(list(pia.server_list.keys()))
+
+
+def generate_config(region: str, username: str, password: str) -> dict:
+    pia = PiaWG()
+
+    # Check region
+    if region not in pia.server_list.keys():
+        raise Exception("Invalid region")
+
+    # Set region
+    pia.set_region(region)
+
+    # Generate public and private key pair
+    pia.generate_keys()
+
+    # Get token
+    if not pia.get_token(username, password):
+        raise Exception("Error logging in, please try again...")
+
+    # Add key
+    status, response = pia.addkey()
+    if not status:
+        raise Exception("Error adding key to server", response)
+
+    return {
+        "interface": {
+            "address": pia.connection["peer_ip"],
+            "private_key": pia.privatekey,
+            "dns": [
+                pia.connection["dns_servers"][0],
+                pia.connection["dns_servers"][1]
+            ],
+        },
+        "peer": {
+            "public_key": pia.publickey,
+            "endpoint": f"{pia.connection['server_ip']}:1337",
+            "allowed_ips": "0.0.0.0/0",
+            "persistent_keepalive": 25
+        }
+    }
+
+
+def config_to_string(config: dict) -> str:
+    interface = config["interface"]
+    peer = config["peer"]
+    return '[Interface]\n' \
+        + f'Address = {interface["address"]}\n' \
+        + f'PrivateKey = {interface["private_key"]}\n' \
+        + f'DNS = {",".join(interface["dns"])}\n\n' \
+        + '[Peer]\n' \
+        + f'PublicKey = {peer["public_key"]}\n' \
+        + f'Endpoint = {peer["endpoint"]}\n' \
+        + f'AllowedIPs = {peer["allowed_ips"]}\n' \
+        + f'PersistentKeepalive = {peer["persistent_keepalive"]}\n'
+
+
+def main() -> None:
     argparser = argparse.ArgumentParser(description='PIA Wireguard')
     argparser.add_argument('--list', '-l', action='store_true', help='List available regions')
     argparser.add_argument('--region', '-r', help='Region to connect to')
@@ -14,11 +73,10 @@ def main():
     argparser.add_argument('--output', '-o', default="wireguard.conf", help='Where to save the config file')
 
     args = argparser.parse_args()
-    pia = PiaWG()
 
     if args.list:
         print("Available regions:")
-        for region in sorted(list(pia.server_list.keys())):
+        for region in region_list():
             print(region)
         exit(0)
 
@@ -30,47 +88,15 @@ def main():
         print("Config file already exists, please delete it first")
         exit(1)
 
-    if args.region not in pia.server_list.keys():
-        print("Invalid region")
-        exit(1)
-
-    # Set region
-    print(f"Selected {args.region}")
-    pia.set_region(args.region)
-
     if not args.username:
         args.username = input("Enter PIA username: ")
     if not args.password:
         args.password = getpass("Enter PIA password: ")
 
-    # Generate public and private key pair
-    pia.generate_keys()
-
-    # Get token
-    if not pia.get_token(args.username, args.password):
-        print("Error logging in, please try again...")
-        exit(1)
-
-    # Add key
-    status, response = pia.addkey()
-    if not status:
-        print("Error adding key to server")
-        print(response)
-        exit(1)
-
-    config = '[Interface]\n' \
-        + f'Address = {pia.connection["peer_ip"]}\n' \
-        + f'PrivateKey = {pia.privatekey}\n' \
-        + f'DNS = {pia.connection["dns_servers"][0]},{pia.connection["dns_servers"][1]}\n\n' \
-        + '[Peer]\n' \
-        + f'PublicKey = {pia.connection["server_key"]}\n' \
-        + f'Endpoint = {pia.connection["server_ip"]}:1337\n' \
-        + 'AllowedIPs = 0.0.0.0/0\n' \
-        + 'PersistentKeepalive = 25\n'
-
     print(f"Saving configuration file {args.output}")
+    config = generate_config(args.region, args.username, args.password)
     with open(args.output, 'w') as configFile:
-        configFile.write(config)
+        configFile.write(config_to_string(config))
 
 
 if __name__ == '__main__':
